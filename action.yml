@@ -1,5 +1,7 @@
 name: 'PROS Depot'
-description: 'Generates a PROS depot JSON file from GitHub releases for PROS template distribution'
+description:
+  'Generates a PROS depot JSON file from GitHub releases for PROS template
+  distribution'
 author: 'Jerry Lum'
 
 # Add your action's branding here. This will appear on the GitHub Marketplace.
@@ -10,22 +12,31 @@ branding:
 # Define your inputs here.
 inputs:
   github_token:
-    description: 'GitHub token for accessing repository releases (optional, defaults to the token of the user running the action)'
+    description:
+      'GitHub token for accessing repository releases (optional, defaults to the
+      token of the user running the action)'
     required: false
   repository:
-    description: 'Repository to generate depot from (format: owner/repo) (optional, defaults to the repository the action is run in)'
+    description:
+      'Repository to generate depot from (format: owner/repo) (optional,
+      defaults to the repository the action is run in)'
     required: false
     default: ''
   include_prereleases:
-    description: 'Include prereleases in the depot (all, stable-only, prerelease-only)'
+    description:
+      'Include prereleases in the depot (all, stable-only, prerelease-only)'
     required: false
-    default: "all"
+    default: 'all'
   push:
-    description: 'Push the generated depot JSON file to the target branch (optional, defaults to true)'
+    description:
+      'Push the generated depot JSON file to the target branch (optional,
+      defaults to true)'
     required: false
-    default: "true"
+    default: 'true'
   target_branch:
-    description: 'Branch to store the generated depot JSON file (optional, defaults to depot)'
+    description:
+      'Branch to store the generated depot JSON file (optional, defaults to
+      depot)'
     required: false
     default: 'depot'
   target_path:
