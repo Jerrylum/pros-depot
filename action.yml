@@ -1,23 +1,42 @@
-name: 'The name of your action here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'PROS Depot'
+description: 'Generates a PROS depot JSON file from GitHub releases for PROS template distribution'
+author: 'Jerry Lum'
 
 # Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
-  icon: 'heart'
-  color: 'red'
+  icon: 'box'
+  color: 'black'
 
 # Define your inputs here.
 inputs:
-  milliseconds:
-    description: 'Your input description here'
-    required: true
-    default: '1000'
+  github_token:
+    description: 'GitHub token for accessing repository releases (optional, defaults to the token of the user running the action)'
+    required: false
+  repository:
+    description: 'Repository to generate depot from (format: owner/repo) (optional, defaults to the repository the action is run in)'
+    required: false
+    default: ''
+  include_prereleases:
+    description: 'Include prereleases in the depot (all, stable-only, prerelease-only)'
+    required: false
+    default: "all"
+  push:
+    description: 'Push the generated depot JSON file to the target branch (optional, defaults to true)'
+    required: false
+    default: "true"
+  target_branch:
+    description: 'Branch to store the generated depot JSON file (optional, defaults to depot)'
+    required: false
+    default: 'depot'
+  target_path:
+    description: 'Path where the JSON file will be stored in the target branch'
+    required: false
+    default: 'stable.json'
 
 # Define your outputs here.
 outputs:
-  time:
-    description: 'Your output description here'
+  depot_path:
+    description: 'Path of the generated depot JSON file'
 
 runs:
   using: node20
