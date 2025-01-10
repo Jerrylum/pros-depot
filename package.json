@@ -69,6 +69,7 @@
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@octokit/rest": "^20.1.1",
+    "adm-zip": "^0.5.16",
     "zod": "^3.24.1"
   },
   "devDependencies": {
