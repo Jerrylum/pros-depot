@@ -4,6 +4,7 @@ import {
   BaseTemplate,
   Depot,
   DepotSchema,
+  ExternalTemplate,
   ExternalTemplateSchema
 } from './schema'
 import AdmZip from 'adm-zip'
@@ -30,13 +31,20 @@ export function getOctokit(): Octokit {
 export type Release =
   RestEndpointMethodTypes['repos']['listReleases']['response']['data'][number]
 
-export async function fetchReleases(
+export async function listReleases(
   rid: RepositoryIdentifier
-): Promise<Release[]> {
-  const octokit = getOctokit()
-  const { owner, repo } = rid
-  const response = await octokit.rest.repos.listReleases({ owner, repo })
-  return response.data
+): Promise<Release[] | null> {
+  try {
+    const octokit = getOctokit()
+    const { owner, repo } = rid
+    const response = await octokit.rest.repos.listReleases({ owner, repo })
+    return response.data
+  } catch (error) {
+    core.warning(
+      `Failed to fetch releases from ${rid.owner}/${rid.repo}. ${String(error)}`
+    )
+    return null
+  }
 }
 
 export type DownloadableZip = {
@@ -72,7 +80,7 @@ export function hasBeenUpdatedAfter(
   return new Date(zip.updated_at) > target_date
 }
 
-export type FileContent = { content: string; last_modified: Date }
+export type FileContent = { sha: string; content: string; last_modified: Date }
 
 async function getFileContent(
   rid: RepositoryIdentifier,
@@ -94,8 +102,9 @@ async function getFileContent(
       throw new Error(`It is not a file.`)
     }
 
+    const sha = response.data.sha
     const content = Buffer.from(response.data.content, 'base64').toString()
-    // core.debug(`Content: ${content}`)
+    core.debug(`Content: ${content}`)
 
     // Get the last commit for the file to find the last modified date
     const commits = await octokit.rest.repos.listCommits({
@@ -111,7 +120,7 @@ async function getFileContent(
     const raw_date = commits.data?.[0].commit.committer?.date
     const last_modified = raw_date ? new Date(raw_date) : new Date(0)
 
-    return { content, last_modified }
+    return { sha, content, last_modified }
   } catch (error) {
     if (
       error instanceof Error &&
@@ -139,7 +148,7 @@ export function parseDepot(content: string): Depot | null {
       return parse_result.data
     } else {
       core.warning(
-        `Failed to parse the file as a depot: ${String(parse_result.error)}`
+        `Failed to parse the file as a depot. ${String(parse_result.error)}`
       )
       return null
     }
@@ -150,21 +159,37 @@ export function parseDepot(content: string): Depot | null {
     return null
   }
 }
-export async function fetchBaseTemplateFromZip(
+
+export function parseExternalTemplate(
+  content: string
+): ExternalTemplate | null {
+  try {
+    const parsed = JSON.parse(content) as unknown
+    const parse_result = ExternalTemplateSchema.safeParse(parsed)
+    if (parse_result.success) {
+      return parse_result.data
+    } else {
+      core.warning(
+        `Failed to parse the file as a base template. ${String(parse_result.error)}`
+      )
+      return null
+    }
+  } catch {
+    core.warning(
+      `Failed to parse the file as a base template. The file content is not a valid JSON.`
+    )
+    return null
+  }
+}
+
+export async function getExternalTemplateFromZip(
   rid: RepositoryIdentifier,
   zip: DownloadableZip
-): Promise<BaseTemplate | null> {
-  if (zip.result) {
-    core.debug(
-      `Using previous result for ${zip.download_url} (${zip.asset_id})`
-    )
-    return zip.result
-  }
-
-  core.debug(`Fetching template from ${zip.download_url} (${zip.asset_id})`)
-
+): Promise<ExternalTemplate | null> {
   const octokit = getOctokit()
   try {
+    core.debug(`Start asset id: ${zip.asset_id}`)
+
     const response = await octokit.rest.repos.getReleaseAsset({
       owner: rid.owner,
       repo: rid.repo,
@@ -180,37 +205,64 @@ export async function fetchBaseTemplateFromZip(
     const zip_file = new AdmZip(Buffer.from(data))
     const template_json_entry = zip_file.getEntry('template.pros')
     if (template_json_entry == null) {
-      core.debug(
-        `No template.pros file found in the zip at ${zip.download_url}.`
+      core.warning(
+        `No template.pros file found in the zip at ${zip.download_url} (${zip.asset_id})`
       )
       return null
     }
 
-    const template_json = JSON.parse(
+    const template = parseExternalTemplate(
       template_json_entry.getData().toString()
-    ) as unknown
-    const template_info = ExternalTemplateSchema.safeParse(template_json)
-    if (template_info.success) {
-      const template_data = template_info.data['py/state']
-      return {
-        metadata: {
-          location: zip.download_url
-        },
-        name: template_data.name,
-        'py/object': 'pros.conductor.templates.base_template.BaseTemplate',
-        supported_kernels: template_data.supported_kernels,
-        target: template_data.target,
-        version: template_data.version
-      } satisfies BaseTemplate
+    )
+    if (template) {
+      return template
     } else {
-      throw new Error(
-        `Failed to parse the template.pros file: ${String(template_info.error)}`
+      core.warning(
+        `Failed to parse the template.pros file in the zip at ${zip.download_url} (${zip.asset_id})`
       )
+      return null
     }
   } catch (error) {
-    core.warning(`Failed to fetch the template. ${String(error)}`)
+    core.warning(`Failed to download the template. ${String(error)}`)
     return null
   }
+}
+
+export async function createBaseTemplate(
+  rid: RepositoryIdentifier,
+  zip: DownloadableZip
+): Promise<BaseTemplate | null> {
+  if (zip.result !== null) {
+    core.debug(
+      `Using previous result for ${zip.download_url} (${zip.asset_id})`
+    )
+    return Promise.resolve(zip.result)
+  } else {
+    core.info(
+      `Fetching external template from ${zip.download_url} (${zip.asset_id})`
+    )
+    const template = await getExternalTemplateFromZip(rid, zip)
+    return template
+      ? convertExternalTemplateToBaseTemplate(zip, template)
+      : null
+  }
+}
+
+export function convertExternalTemplateToBaseTemplate(
+  zip: DownloadableZip,
+  external_template: ExternalTemplate
+): BaseTemplate {
+  const template_data = external_template['py/state']
+  return {
+    metadata: {
+      location: zip.download_url
+    },
+    name: template_data.name,
+    'py/object': 'pros.conductor.templates.base_template.BaseTemplate',
+    supported_kernels: template_data.supported_kernels,
+    target: template_data.target,
+    version: template_data.version
+  } satisfies BaseTemplate
 }
 
 export function applyPreviousResult(
@@ -233,16 +285,147 @@ export function getPreviousResult(
   return depot_map.get(zip.download_url) ?? null
 }
 
+export async function pushFile(
+  rid: RepositoryIdentifier,
+  branch: string,
+  path: string,
+  content: string,
+  commit_message: string,
+  old_sha: string | null
+): Promise<boolean> {
+  //  git checkout --orphan depot && git rm -rf . && git commit --allow-empty -m "Initial empty commit"
+
+  const octokit = getOctokit()
+  const { owner, repo } = rid
+
+  try {
+    // Check if the branch already exists
+    await octokit.rest.repos.getBranch({
+      owner,
+      repo,
+      branch
+    })
+    core.info(`Branch '${branch}' already exists.`)
+
+    await octokit.repos.createOrUpdateFileContents({
+      owner,
+      repo,
+      branch,
+      path,
+      message: commit_message,
+      content: Buffer.from(content).toString('base64'),
+      sha: old_sha ?? undefined
+    })
+    return true
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      'status' in error &&
+      typeof error.status === 'number' &&
+      error.status === 404
+    ) {
+      core.info(
+        `Branch '${branch}' does not exist. Creating a new orphan branch.`
+      )
+    } else {
+      core.error(
+        `Failed to check if branch '${branch}' exists. ${String(error)}`
+      )
+      return false
+    }
+
+    try {
+      const { data: treeSHA } = await octokit.rest.git.createTree({
+        owner,
+        repo,
+        base_tree: undefined,
+        tree: [{ path, mode: '100644', type: 'blob', content }]
+      })
+
+      // Create an empty commit
+      const { data: newCommit } = await octokit.rest.git.createCommit({
+        owner,
+        repo,
+        message: commit_message,
+        tree: treeSHA.sha,
+        parents: []
+      })
+
+      // Create the new orphan branch
+      await octokit.rest.git.createRef({
+        owner,
+        repo,
+        ref: `refs/heads/${branch}`,
+        sha: newCommit.sha
+      })
+
+      return true
+    } catch (error) {
+      core.error(`Failed to create the new orphan branch. ${String(error)}`)
+      return false
+    }
+  }
+}
+
+export type IncludeStrategy = 'all' | 'stable-only' | 'prerelease-only'
+
+export function getIncludeStrategy(input: string): IncludeStrategy {
+  if (
+    input === 'all' ||
+    input === 'stable-only' ||
+    input === 'prerelease-only'
+  ) {
+    return input
+  } else {
+    throw new Error(`Invalid include strategy: ${input}`)
+  }
+}
+
+export function shouldIncludeZip(
+  zip: DownloadableZip,
+  include_strategy: IncludeStrategy
+): boolean {
+  if (include_strategy === 'stable-only') {
+    return !zip.prerelease
+  } else if (include_strategy === 'prerelease-only') {
+    return zip.prerelease
+  } else {
+    return true
+  }
+}
+
+export function getCommitMessage(old_depot: Depot, new_depot: Depot): string {
+  const updated_count = new_depot.length - old_depot.length
+  const old_depot_list = old_depot.map(item => item.metadata.location)
+
+  const added_templates = new_depot.filter(
+    item => !old_depot_list.includes(item.metadata.location)
+  )
+  if (added_templates.length === 1) {
+    return `Release version ${added_templates[0].version}`
+  } else {
+    return `Update ${updated_count} version(s)`
+  }
+}
+
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
  */
 export async function run(): Promise<void> {
+  const include_strategy = getIncludeStrategy(
+    core.getInput('include_prereleases')
+  )
+  const is_push = core.getInput('push') === 'true'
   const target_repo =
     core.getInput('target_repo') || process.env.GITHUB_REPOSITORY || ''
   const target_repo_rid = toRepositoryIdentifier(target_repo)
   const target_branch = core.getInput('target_branch')
   const target_path = core.getInput('target_path')
+
+  core.info(
+    `Getting the current depot from the target repository ${target_repo_rid.owner}/${target_repo_rid.repo}`
+  )
 
   const curr_depot_file = await getFileContent(
     target_repo_rid,
@@ -263,21 +446,30 @@ export async function run(): Promise<void> {
     process.env.__SOURCE_REPO__ || process.env.GITHUB_REPOSITORY || ''
   const source_rid = toRepositoryIdentifier(source_repo)
 
-  core.debug(`The source repository is ${source_rid.owner}/${source_rid.repo}`)
+  core.info(
+    `Getting releases from the source repository ${source_rid.owner}/${source_rid.repo}`
+  )
 
-  const releases = await fetchReleases(source_rid)
+  const releases = await listReleases(source_rid)
+  if (releases === null) {
+    core.setFailed(`Failed to fetch releases`)
+    return
+  }
 
   const zips = releases
     // Get the downloadable zips from the releases
     .map(getDownloadableZips)
     // Flatten the array of arrays
     .flat()
+    // Filter the zips based on the include strategy
+    .filter(zip => shouldIncludeZip(zip, include_strategy))
     // Remove the zips that we checked before and were not templates
     .filter(
       zip =>
         !(
           hasBeenUpdatedAfter(zip, curr_depot_last_updated) &&
-          getPreviousResult(zip, curr_depot_map) === null
+          getPreviousResult(zip, curr_depot_map) === null &&
+          curr_depot_file !== null
         )
     )
     // Add the previous result to the zip if the result is before the last updated date
@@ -285,13 +477,21 @@ export async function run(): Promise<void> {
       applyPreviousResult(zip, curr_depot_map, curr_depot_last_updated)
     )
 
-  core.debug(`Fetching ${zips.filter(zip => !zip.result).length} templates`)
+  const num_of_fetching = zips.filter(zip => !zip.result).length
 
-  const fetched_templates = await Promise.all(
-    zips.map(async zip => await fetchBaseTemplateFromZip(source_rid, zip))
-  )
+  if (num_of_fetching === 0) {
+    core.info(`Depot ${target_path} is already up to date`)
+    return
+  }
 
-  core.debug(`Finished fetching templates`)
+  core.info(`Fetching ${num_of_fetching} templates`)
+
+  const fetched_templates = []
+  for (const zip of zips) {
+    fetched_templates.push(await createBaseTemplate(source_rid, zip))
+  }
+
+  core.info(`Finished fetching templates`)
 
   const new_depot = fetched_templates.filter(
     template => template !== null
@@ -299,24 +499,33 @@ export async function run(): Promise<void> {
 
   const new_depot_string = JSON.stringify(new_depot, null, 2)
 
-  core.debug(`new_depot_string: ${new_depot_string}`)
+  core.debug(`Depot: ${new_depot_string}`)
+  core.setOutput('depot', new_depot_string)
 
-  // TODO
-  // try {
-  //   const ms: string = core.getInput('milliseconds')
+  if (!is_push) {
+    core.info(`Skipping push`)
+    return
+  }
 
-  //   // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-  //   core.debug(`Waiting ${ms} milliseconds ...`)
+  core.info(
+    `Pushing the file to the target repository ${target_repo_rid.owner}/${target_repo_rid.repo}`
+  )
 
-  //   // Log the current timestamp, wait, then log the new timestamp
-  //   core.debug(new Date().toTimeString())
-  //   await wait(parseInt(ms, 10))
-  //   core.debug(new Date().toTimeString())
+  const commit_message = getCommitMessage(curr_depot, new_depot)
 
-  //   // Set outputs for other workflow steps to use
-  //   core.setOutput('time', new Date().toTimeString())
-  // } catch (error) {
-  //   // Fail the workflow run if an error occurs
-  //   if (error instanceof Error) core.setFailed(error.message)
-  // }
+  core.info(`Commit message: ${commit_message}`)
+
+  const success = await pushFile(
+    target_repo_rid,
+    target_branch,
+    target_path,
+    new_depot_string,
+    commit_message,
+    curr_depot_file?.sha ?? null
+  )
+
+  if (!success) {
+    core.setFailed(`Failed to push the file`)
+    return
+  }
 }

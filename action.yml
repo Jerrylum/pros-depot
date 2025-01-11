@@ -4,12 +4,10 @@ description:
   distribution'
 author: 'Jerry Lum'
 
-# Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:
   icon: 'box'
   color: 'black'
 
-# Define your inputs here.
 inputs:
   github_token:
     description:
@@ -44,10 +42,9 @@ inputs:
     required: false
     default: 'stable.json'
 
-# Define your outputs here.
 outputs:
-  depot_path:
-    description: 'Path of the generated depot JSON file'
+  depot:
+    description: 'The content of the depot JSON file'
 
 runs:
   using: node20
