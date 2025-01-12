@@ -295,6 +295,26 @@ export async function pushFile(
   }
 }
 
+export function getReleaseSummary(releases: Release[]): string {
+  return JSON.stringify(
+    releases.map(release => ({
+      name: release.name,
+      draft: release.draft,
+      prerelease: release.prerelease,
+      created_at: release.created_at,
+      published_at: release.published_at,
+      assets: release.assets.map(asset => ({
+        id: asset.id,
+        name: asset.name,
+        updated_at: asset.updated_at,
+        browser_download_url: asset.browser_download_url
+      }))
+    })),
+    null,
+    2
+  )
+}
+
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
@@ -342,6 +362,8 @@ export async function run(): Promise<void> {
     core.setFailed(`Failed to fetch releases`)
     return
   }
+
+  core.debug(`Releases: ${getReleaseSummary(releases)}`)
 
   const zips = releases
     // Get the downloadable zips from the releases

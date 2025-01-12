@@ -37567,6 +37567,7 @@ exports.parseExternalTemplate = parseExternalTemplate;
 exports.getExternalTemplateFromZip = getExternalTemplateFromZip;
 exports.createBaseTemplate = createBaseTemplate;
 exports.pushFile = pushFile;
+exports.getReleaseSummary = getReleaseSummary;
 exports.run = run;
 const core = __importStar(__nccwpck_require__(7484));
 const rest_1 = __nccwpck_require__(5772);
@@ -37778,6 +37779,21 @@ async function pushFile(rid, branch, path, content, commit_message, old_sha) {
         }
     }
 }
+function getReleaseSummary(releases) {
+    return JSON.stringify(releases.map(release => ({
+        name: release.name,
+        draft: release.draft,
+        prerelease: release.prerelease,
+        created_at: release.created_at,
+        published_at: release.published_at,
+        assets: release.assets.map(asset => ({
+            id: asset.id,
+            name: asset.name,
+            updated_at: asset.updated_at,
+            browser_download_url: asset.browser_download_url
+        }))
+    })), null, 2);
+}
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
@@ -37803,6 +37819,7 @@ async function run() {
         core.setFailed(`Failed to fetch releases`);
         return;
     }
+    core.debug(`Releases: ${getReleaseSummary(releases)}`);
     const zips = releases
         // Get the downloadable zips from the releases
         .map(utils_1.getDownloadableZips)
