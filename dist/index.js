@@ -37560,31 +37560,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.toRepositoryIdentifier = toRepositoryIdentifier;
 exports.getOctokit = getOctokit;
 exports.listReleases = listReleases;
-exports.getDownloadableZips = getDownloadableZips;
-exports.hasBeenUpdatedAfter = hasBeenUpdatedAfter;
 exports.parseDepot = parseDepot;
 exports.parseExternalTemplate = parseExternalTemplate;
 exports.getExternalTemplateFromZip = getExternalTemplateFromZip;
 exports.createBaseTemplate = createBaseTemplate;
-exports.convertExternalTemplateToBaseTemplate = convertExternalTemplateToBaseTemplate;
-exports.applyPreviousResult = applyPreviousResult;
-exports.getPreviousResult = getPreviousResult;
 exports.pushFile = pushFile;
-exports.getIncludeStrategy = getIncludeStrategy;
-exports.shouldIncludeZip = shouldIncludeZip;
-exports.getCommitMessage = getCommitMessage;
 exports.run = run;
 const core = __importStar(__nccwpck_require__(7484));
 const rest_1 = __nccwpck_require__(5772);
 const schema_1 = __nccwpck_require__(5060);
 const adm_zip_1 = __importDefault(__nccwpck_require__(1316));
-function toRepositoryIdentifier(owner_and_repo_name) {
-    const [owner, repo] = owner_and_repo_name.split('/');
-    return { owner, repo };
-}
+const utils_1 = __nccwpck_require__(1798);
 function getOctokit() {
     const GITHUB_TOKEN = core.getInput('github_token') || process.env.GITHUB_TOKEN || '';
     return new rest_1.Octokit({ auth: GITHUB_TOKEN });
@@ -37600,26 +37588,6 @@ async function listReleases(rid) {
         core.warning(`Failed to fetch releases from ${rid.owner}/${rid.repo}. ${String(error)}`);
         return null;
     }
-}
-function getDownloadableZips(release) {
-    return release.assets
-        .filter(asset => asset.name.endsWith('.zip'))
-        .map(asset => ({
-        asset_id: asset.id,
-        download_url: asset.browser_download_url,
-        updated_at: asset.updated_at,
-        prerelease: release.prerelease,
-        result: null
-    }));
-}
-/**
- * Check if the zip has been updated after the target date
- * @param zip - The zip to check
- * @param target_date - The target date
- * @returns True if the zip has been updated after the target date, false otherwise
- */
-function hasBeenUpdatedAfter(zip, target_date) {
-    return new Date(zip.updated_at) > target_date;
 }
 async function getFileContent(rid, branch, path) {
     try {
@@ -37742,33 +37710,9 @@ async function createBaseTemplate(rid, zip) {
         core.info(`Fetching external template from ${zip.download_url} (${zip.asset_id})`);
         const template = await getExternalTemplateFromZip(rid, zip);
         return template
-            ? convertExternalTemplateToBaseTemplate(zip, template)
+            ? (0, utils_1.convertExternalTemplateToBaseTemplate)(zip, template)
             : null;
     }
-}
-function convertExternalTemplateToBaseTemplate(zip, external_template) {
-    const template_data = external_template['py/state'];
-    return {
-        metadata: {
-            location: zip.download_url
-        },
-        name: template_data.name,
-        'py/object': 'pros.conductor.templates.base_template.BaseTemplate',
-        supported_kernels: template_data.supported_kernels,
-        target: template_data.target,
-        version: template_data.version
-    };
-}
-function applyPreviousResult(zip, depot_map, depot_last_updated) {
-    return {
-        ...zip,
-        result: hasBeenUpdatedAfter(zip, depot_last_updated)
-            ? null
-            : getPreviousResult(zip, depot_map)
-    };
-}
-function getPreviousResult(zip, depot_map) {
-    return depot_map.get(zip.download_url) ?? null;
 }
 async function pushFile(rid, branch, path, content, commit_message, old_sha) {
     //  git checkout --orphan depot && git rm -rf . && git commit --allow-empty -m "Initial empty commit"
@@ -37834,47 +37778,15 @@ async function pushFile(rid, branch, path, content, commit_message, old_sha) {
         }
     }
 }
-function getIncludeStrategy(input) {
-    if (input === 'all' ||
-        input === 'stable-only' ||
-        input === 'prerelease-only') {
-        return input;
-    }
-    else {
-        throw new Error(`Invalid include strategy: ${input}`);
-    }
-}
-function shouldIncludeZip(zip, include_strategy) {
-    if (include_strategy === 'stable-only') {
-        return !zip.prerelease;
-    }
-    else if (include_strategy === 'prerelease-only') {
-        return zip.prerelease;
-    }
-    else {
-        return true;
-    }
-}
-function getCommitMessage(old_depot, new_depot) {
-    const updated_count = new_depot.length - old_depot.length;
-    const old_depot_list = old_depot.map(item => item.metadata.location);
-    const added_templates = new_depot.filter(item => !old_depot_list.includes(item.metadata.location));
-    if (added_templates.length === 1) {
-        return `Release version ${added_templates[0].version}`;
-    }
-    else {
-        return `Update ${updated_count} version(s)`;
-    }
-}
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
  */
 async function run() {
-    const include_strategy = getIncludeStrategy(core.getInput('include_prereleases'));
+    const include_strategy = (0, utils_1.getIncludeStrategy)(core.getInput('include_prereleases'));
     const is_push = core.getInput('push') === 'true';
     const target_repo = core.getInput('target_repo') || process.env.GITHUB_REPOSITORY || '';
-    const target_repo_rid = toRepositoryIdentifier(target_repo);
+    const target_repo_rid = (0, utils_1.toRepositoryIdentifier)(target_repo);
     const target_branch = core.getInput('target_branch');
     const target_path = core.getInput('target_path');
     core.info(`Getting the current depot from the target repository ${target_repo_rid.owner}/${target_repo_rid.repo}`);
@@ -37884,7 +37796,7 @@ async function run() {
     const curr_depot_map = new Map(curr_depot.map(item => [item.metadata.location, item]));
     core.debug(`The last updated date of the depot is ${curr_depot_last_updated.toISOString()}`);
     const source_repo = process.env.__SOURCE_REPO__ || process.env.GITHUB_REPOSITORY || '';
-    const source_rid = toRepositoryIdentifier(source_repo);
+    const source_rid = (0, utils_1.toRepositoryIdentifier)(source_repo);
     core.info(`Getting releases from the source repository ${source_rid.owner}/${source_rid.repo}`);
     const releases = await listReleases(source_rid);
     if (releases === null) {
@@ -37893,17 +37805,17 @@ async function run() {
     }
     const zips = releases
         // Get the downloadable zips from the releases
-        .map(getDownloadableZips)
+        .map(utils_1.getDownloadableZips)
         // Flatten the array of arrays
         .flat()
         // Filter the zips based on the include strategy
-        .filter(zip => shouldIncludeZip(zip, include_strategy))
+        .filter(zip => (0, utils_1.shouldIncludeZip)(zip, include_strategy))
         // Remove the zips that we checked before and were not templates
-        .filter(zip => !(hasBeenUpdatedAfter(zip, curr_depot_last_updated) &&
-        getPreviousResult(zip, curr_depot_map) === null &&
+        .filter(zip => !((0, utils_1.hasBeenUpdatedAfter)(zip, curr_depot_last_updated) &&
+        (0, utils_1.getPreviousResult)(zip, curr_depot_map) === null &&
         curr_depot_file !== null))
         // Add the previous result to the zip if the result is before the last updated date
-        .map(zip => applyPreviousResult(zip, curr_depot_map, curr_depot_last_updated));
+        .map(zip => (0, utils_1.applyPreviousResult)(zip, curr_depot_map, curr_depot_last_updated));
     const num_of_fetching = zips.filter(zip => !zip.result).length;
     if (num_of_fetching === 0) {
         core.info(`Depot ${target_path} is already up to date`);
@@ -37911,6 +37823,7 @@ async function run() {
     }
     core.info(`Fetching ${num_of_fetching} templates`);
     const fetched_templates = [];
+    //  Process the zips one by one
     for (const zip of zips) {
         fetched_templates.push(await createBaseTemplate(source_rid, zip));
     }
@@ -37924,7 +37837,7 @@ async function run() {
         return;
     }
     core.info(`Pushing the file to the target repository ${target_repo_rid.owner}/${target_repo_rid.repo}`);
-    const commit_message = getCommitMessage(curr_depot, new_depot);
+    const commit_message = (0, utils_1.getCommitMessage)(curr_depot, new_depot);
     core.info(`Commit message: ${commit_message}`);
     const success = await pushFile(target_repo_rid, target_branch, target_path, new_depot_string, commit_message, curr_depot_file?.sha ?? null);
     if (!success) {
@@ -37967,6 +37880,191 @@ exports.ExternalTemplateSchema = zod_1.z.object({
         version: zod_1.z.string()
     })
 });
+
+
+/***/ }),
+
+/***/ 1798:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.toRepositoryIdentifier = toRepositoryIdentifier;
+exports.getDownloadableZips = getDownloadableZips;
+exports.hasBeenUpdatedAfter = hasBeenUpdatedAfter;
+exports.convertExternalTemplateToBaseTemplate = convertExternalTemplateToBaseTemplate;
+exports.applyPreviousResult = applyPreviousResult;
+exports.getPreviousResult = getPreviousResult;
+exports.getIncludeStrategy = getIncludeStrategy;
+exports.shouldIncludeZip = shouldIncludeZip;
+exports.getCommitMessage = getCommitMessage;
+/**
+ * Convert a string to a repository identifier
+ *
+ * If the string is not a valid repository name (without a slash), an error is thrown
+ *
+ * For example, "jerrylum/My-Project" -> { owner: "jerrylum", repo: "My-Project" }
+ *
+ * @param owner_and_repo_name - The string to convert
+ * @returns The repository identifier
+ */
+function toRepositoryIdentifier(owner_and_repo_name) {
+    if (!owner_and_repo_name.includes('/'))
+        throw new Error(`Invalid repository name: ${owner_and_repo_name}`);
+    const [owner, repo] = owner_and_repo_name.split('/');
+    return { owner, repo };
+}
+/**
+ * Get the list of downloadable zip files from a GitHub release. Assets that are
+ * not zip files are ignored.
+ *
+ * @param release - The GitHub release
+ * @returns The list of downloadable zip files
+ */
+function getDownloadableZips(release) {
+    return release.assets
+        .filter(asset => asset.name.endsWith('.zip'))
+        .map(asset => ({
+        asset_id: asset.id,
+        download_url: asset.browser_download_url,
+        updated_at: asset.updated_at,
+        prerelease: release.prerelease,
+        result: null
+    }));
+}
+/**
+ * Check if the zip has been updated after the target date
+ *
+ * For example, if the zip was updated on 2025-01-01 and the target date is
+ * 2025-01-02, then this function will return false.
+ *
+ * We use this function to determine if we should re-download the zip file.
+ *
+ * @param zip - The zip to check
+ * @param target_date - The target date
+ * @returns True if the zip has been updated after the target date, false otherwise
+ */
+function hasBeenUpdatedAfter(zip, target_date) {
+    return new Date(zip.updated_at) > target_date;
+}
+/**
+ * Convert an external template to a base template.
+ *
+ * @param zip - The zip file
+ * @param external_template - The external template, which is the content of the
+ * template.pros file in the same zip file.
+ * @returns The base template
+ */
+function convertExternalTemplateToBaseTemplate(zip, external_template) {
+    const template_data = external_template['py/state'];
+    return {
+        metadata: {
+            location: zip.download_url
+        },
+        name: template_data.name,
+        'py/object': 'pros.conductor.templates.base_template.BaseTemplate',
+        supported_kernels: template_data.supported_kernels,
+        target: template_data.target,
+        version: template_data.version
+    };
+}
+/**
+ * Apply the previous result to the zip file.
+ *
+ * If the zip has been updated before or at the depot last updated time, then we
+ * can use the previous result. Otherwise, we should re-download the zip file by
+ * setting the result to null. We will download the zip file in the next step if
+ * the result is null.
+ *
+ * @param zip - The zip file
+ * @param depot_map - The depot map
+ * @param depot_last_updated - The last updated time of the depot
+ * @returns The zip file with the previous result applied
+ */
+function applyPreviousResult(zip, depot_map, depot_last_updated) {
+    return {
+        ...zip,
+        result: hasBeenUpdatedAfter(zip, depot_last_updated)
+            ? null
+            : getPreviousResult(zip, depot_map)
+    };
+}
+/**
+ * Get the previous result from the depot map.
+ *
+ * @param zip - The zip file
+ * @param depot_map - The depot map
+ * @returns The previous result
+ */
+function getPreviousResult(zip, depot_map) {
+    return depot_map.get(zip.download_url) ?? null;
+}
+/**
+ * Get the include strategy from the input.
+ *
+ * If the input is not a valid include strategy, an error is thrown.
+ *
+ * @param input - The input
+ * @returns The include strategy
+ */
+function getIncludeStrategy(input) {
+    if (input === 'all' ||
+        input === 'stable-only' ||
+        input === 'prerelease-only') {
+        return input;
+    }
+    else {
+        throw new Error(`Invalid include strategy: ${input}`);
+    }
+}
+/**
+ * Check if the zip should be included based on the include strategy.
+ *
+ * @param zip - The zip file
+ * @param include_strategy - The include strategy
+ * @returns True if the zip should be included, false otherwise
+ */
+function shouldIncludeZip(zip, include_strategy) {
+    if (include_strategy === 'stable-only') {
+        return !zip.prerelease;
+    }
+    else if (include_strategy === 'prerelease-only') {
+        return zip.prerelease;
+    }
+    else {
+        return true;
+    }
+}
+/**
+ * Get the commit message for the depot update.
+ *
+ * @param old_depot - The old depot
+ * @param new_depot - The new depot
+ * @returns The commit message
+ */
+function getCommitMessage(old_depot, new_depot) {
+    const old_depot_map = new Map(old_depot.map(item => [item.metadata.location, item]));
+    let added_count = 0;
+    let updated_count = 0;
+    for (const new_item of new_depot) {
+        const old_item = old_depot_map.get(new_item.metadata.location);
+        if (!old_item) {
+            added_count++;
+        }
+        else if (JSON.stringify(old_item) !== JSON.stringify(new_item)) {
+            updated_count++;
+        }
+        old_depot_map.delete(new_item.metadata.location);
+    }
+    const removed_count = old_depot_map.size;
+    if (added_count === 1 && updated_count === 0 && removed_count === 0) {
+        return `Release version ${new_depot[0].version}`;
+    }
+    else {
+        return `Update one or more version(s)`;
+    }
+}
 
 
 /***/ }),
