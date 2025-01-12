@@ -9,7 +9,7 @@ branding:
   color: 'black'
 
 inputs:
-  github_token:
+  token:
     description:
       'GitHub token for accessing repository releases (optional, defaults to the
       token of the user running the action)'

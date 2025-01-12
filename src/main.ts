@@ -24,8 +24,7 @@ import {
 } from './utils'
 
 export function getOctokit(): Octokit {
-  const GITHUB_TOKEN =
-    core.getInput('github_token') || process.env.GITHUB_TOKEN || ''
+  const GITHUB_TOKEN = core.getInput('token') || process.env.GITHUB_TOKEN || ''
   return new Octokit({ auth: GITHUB_TOKEN })
 }
 
@@ -235,16 +234,21 @@ export async function pushFile(
     })
     core.info(`Branch '${branch}' already exists.`)
 
-    await octokit.repos.createOrUpdateFileContents({
-      owner,
-      repo,
-      branch,
-      path,
-      message: commit_message,
-      content: Buffer.from(content).toString('base64'),
-      sha: old_sha ?? undefined
-    })
-    return true
+    try {
+      await octokit.repos.createOrUpdateFileContents({
+        owner,
+        repo,
+        branch,
+        path,
+        message: commit_message,
+        content: Buffer.from(content).toString('base64'),
+        sha: old_sha ?? undefined
+      })
+      return true
+    } catch (error) {
+      core.error(`Failed to update depot file. ${String(error)}`)
+      return false
+    }
   } catch (error) {
     if (
       error instanceof Error &&
@@ -439,8 +443,11 @@ export async function run(): Promise<void> {
     curr_depot_file?.sha ?? null
   )
 
-  if (!success) {
-    core.setFailed(`Failed to push the file`)
-    return
+  if (success) {
+    core.info(`Pushed depot file to the target repository`)
+  } else {
+    core.setFailed(`Make sure you have:
+      1. Added 'contents: write' permission to your workflow
+      2. Included 'token: \${{ secrets.GITHUB_TOKEN }}' in your workflow step`)
   }
 }

@@ -37575,7 +37575,7 @@ const schema_1 = __nccwpck_require__(5060);
 const adm_zip_1 = __importDefault(__nccwpck_require__(1316));
 const utils_1 = __nccwpck_require__(1798);
 function getOctokit() {
-    const GITHUB_TOKEN = core.getInput('github_token') || process.env.GITHUB_TOKEN || '';
+    const GITHUB_TOKEN = core.getInput('token') || process.env.GITHUB_TOKEN || '';
     return new rest_1.Octokit({ auth: GITHUB_TOKEN });
 }
 async function listReleases(rid) {
@@ -37727,16 +37727,22 @@ async function pushFile(rid, branch, path, content, commit_message, old_sha) {
             branch
         });
         core.info(`Branch '${branch}' already exists.`);
-        await octokit.repos.createOrUpdateFileContents({
-            owner,
-            repo,
-            branch,
-            path,
-            message: commit_message,
-            content: Buffer.from(content).toString('base64'),
-            sha: old_sha ?? undefined
-        });
-        return true;
+        try {
+            await octokit.repos.createOrUpdateFileContents({
+                owner,
+                repo,
+                branch,
+                path,
+                message: commit_message,
+                content: Buffer.from(content).toString('base64'),
+                sha: old_sha ?? undefined
+            });
+            return true;
+        }
+        catch (error) {
+            core.error(`Failed to update depot file. ${String(error)}`);
+            return false;
+        }
     }
     catch (error) {
         if (error instanceof Error &&
@@ -37861,9 +37867,13 @@ async function run() {
     const commit_message = (0, utils_1.getCommitMessage)(curr_depot, new_depot);
     core.info(`Commit message: ${commit_message}`);
     const success = await pushFile(target_repo_rid, target_branch, target_path, new_depot_string, commit_message, curr_depot_file?.sha ?? null);
-    if (!success) {
-        core.setFailed(`Failed to push the file`);
-        return;
+    if (success) {
+        core.info(`Pushed depot file to the target repository`);
+    }
+    else {
+        core.setFailed(`Make sure you have:
+      1. Added 'contents: write' permission to your workflow
+      2. Included 'token: \${{ secrets.GITHUB_TOKEN }}' in your workflow step`);
     }
 }
 
