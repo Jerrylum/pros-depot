@@ -372,13 +372,16 @@ export async function run(): Promise<void> {
     .flat()
     // Filter the zips based on the include strategy
     .filter(zip => shouldIncludeZip(zip, include_strategy))
-    // Remove the zips that we checked before and were not templates
+    // Remove the zips that...
+    // 1. We have a depot file, indicating that we have checked before;
+    // 2. The zip has not been updated after the last updated date; and
+    // 3. The zip is not a template;
     .filter(
       zip =>
         !(
-          hasBeenUpdatedAfter(zip, curr_depot_last_updated) &&
-          getPreviousResult(zip, curr_depot_map) === null &&
-          curr_depot_file !== null
+          curr_depot_file !== null &&
+          !hasBeenUpdatedAfter(zip, curr_depot_last_updated) &&
+          getPreviousResult(zip, curr_depot_map) === null
         )
     )
     // Add the previous result to the zip if the result is before the last updated date
