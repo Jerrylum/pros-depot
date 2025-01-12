@@ -10,9 +10,18 @@ export const BaseTemplateSchema = z.object({
   target: z.string(),
   version: z.string()
 })
+
+/**
+ * An entry in the depot.
+ */
 export type BaseTemplate = z.infer<typeof BaseTemplateSchema>
 
 export const DepotSchema = z.array(BaseTemplateSchema)
+
+/**
+ * A list of base templates, stored in a JSON file. PROS-CLI uses
+ * this files as a catalog of templates.
+ */
 export type Depot = z.infer<typeof DepotSchema>
 
 export const ExternalTemplateSchema = z.object({
@@ -29,4 +38,8 @@ export const ExternalTemplateSchema = z.object({
     version: z.string()
   })
 })
+
+/**
+ * The content of the template.pros file in the template zip file.
+ */
 export type ExternalTemplate = z.infer<typeof ExternalTemplateSchema>

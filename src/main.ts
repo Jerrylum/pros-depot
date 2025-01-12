@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import { Octokit, RestEndpointMethodTypes } from '@octokit/rest'
+import { Octokit } from '@octokit/rest'
 import {
   BaseTemplate,
   Depot,
@@ -8,28 +8,26 @@ import {
   ExternalTemplateSchema
 } from './schema'
 import AdmZip from 'adm-zip'
-// import { wait } from './wait'
-
-export type RepositoryIdentifier = {
-  owner: string
-  repo: string
-}
-
-export function toRepositoryIdentifier(
-  owner_and_repo_name: string
-): RepositoryIdentifier {
-  const [owner, repo] = owner_and_repo_name.split('/')
-  return { owner, repo }
-}
+import {
+  applyPreviousResult,
+  convertExternalTemplateToBaseTemplate,
+  DownloadableZip,
+  getCommitMessage,
+  getDownloadableZips,
+  getIncludeStrategy,
+  getPreviousResult,
+  hasBeenUpdatedAfter,
+  Release,
+  RepositoryIdentifier,
+  shouldIncludeZip,
+  toRepositoryIdentifier
+} from './utils'
 
 export function getOctokit(): Octokit {
   const GITHUB_TOKEN =
     core.getInput('github_token') || process.env.GITHUB_TOKEN || ''
   return new Octokit({ auth: GITHUB_TOKEN })
 }
-
-export type Release =
-  RestEndpointMethodTypes['repos']['listReleases']['response']['data'][number]
 
 export async function listReleases(
   rid: RepositoryIdentifier
@@ -45,39 +43,6 @@ export async function listReleases(
     )
     return null
   }
-}
-
-export type DownloadableZip = {
-  asset_id: number
-  download_url: string
-  updated_at: string // ISO 8601
-  prerelease: boolean
-  result: BaseTemplate | null
-}
-
-export function getDownloadableZips(release: Release): DownloadableZip[] {
-  return release.assets
-    .filter(asset => asset.name.endsWith('.zip'))
-    .map(asset => ({
-      asset_id: asset.id,
-      download_url: asset.browser_download_url,
-      updated_at: asset.updated_at,
-      prerelease: release.prerelease,
-      result: null
-    }))
-}
-
-/**
- * Check if the zip has been updated after the target date
- * @param zip - The zip to check
- * @param target_date - The target date
- * @returns True if the zip has been updated after the target date, false otherwise
- */
-export function hasBeenUpdatedAfter(
-  zip: DownloadableZip,
-  target_date: Date
-): boolean {
-  return new Date(zip.updated_at) > target_date
 }
 
 export type FileContent = { sha: string; content: string; last_modified: Date }
@@ -248,43 +213,6 @@ export async function createBaseTemplate(
   }
 }
 
-export function convertExternalTemplateToBaseTemplate(
-  zip: DownloadableZip,
-  external_template: ExternalTemplate
-): BaseTemplate {
-  const template_data = external_template['py/state']
-  return {
-    metadata: {
-      location: zip.download_url
-    },
-    name: template_data.name,
-    'py/object': 'pros.conductor.templates.base_template.BaseTemplate',
-    supported_kernels: template_data.supported_kernels,
-    target: template_data.target,
-    version: template_data.version
-  } satisfies BaseTemplate
-}
-
-export function applyPreviousResult(
-  zip: DownloadableZip,
-  depot_map: Map<string, BaseTemplate>,
-  depot_last_updated: Date
-): DownloadableZip {
-  return {
-    ...zip,
-    result: hasBeenUpdatedAfter(zip, depot_last_updated)
-      ? null
-      : getPreviousResult(zip, depot_map)
-  }
-}
-
-export function getPreviousResult(
-  zip: DownloadableZip,
-  depot_map: Map<string, BaseTemplate>
-): BaseTemplate | null {
-  return depot_map.get(zip.download_url) ?? null
-}
-
 export async function pushFile(
   rid: RepositoryIdentifier,
   branch: string,
@@ -367,47 +295,6 @@ export async function pushFile(
   }
 }
 
-export type IncludeStrategy = 'all' | 'stable-only' | 'prerelease-only'
-
-export function getIncludeStrategy(input: string): IncludeStrategy {
-  if (
-    input === 'all' ||
-    input === 'stable-only' ||
-    input === 'prerelease-only'
-  ) {
-    return input
-  } else {
-    throw new Error(`Invalid include strategy: ${input}`)
-  }
-}
-
-export function shouldIncludeZip(
-  zip: DownloadableZip,
-  include_strategy: IncludeStrategy
-): boolean {
-  if (include_strategy === 'stable-only') {
-    return !zip.prerelease
-  } else if (include_strategy === 'prerelease-only') {
-    return zip.prerelease
-  } else {
-    return true
-  }
-}
-
-export function getCommitMessage(old_depot: Depot, new_depot: Depot): string {
-  const updated_count = new_depot.length - old_depot.length
-  const old_depot_list = old_depot.map(item => item.metadata.location)
-
-  const added_templates = new_depot.filter(
-    item => !old_depot_list.includes(item.metadata.location)
-  )
-  if (added_templates.length === 1) {
-    return `Release version ${added_templates[0].version}`
-  } else {
-    return `Update ${updated_count} version(s)`
-  }
-}
-
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
@@ -487,6 +374,7 @@ export async function run(): Promise<void> {
   core.info(`Fetching ${num_of_fetching} templates`)
 
   const fetched_templates = []
+  //  Process the zips one by one
   for (const zip of zips) {
     fetched_templates.push(await createBaseTemplate(source_rid, zip))
   }
