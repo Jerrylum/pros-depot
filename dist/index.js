@@ -37827,12 +37827,16 @@ async function run() {
         .flat()
         // Filter the zips based on the include strategy
         .filter(zip => (0, utils_1.shouldIncludeZip)(zip, include_strategy))
-        // Remove the zips that we checked before and were not templates
-        .filter(zip => !((0, utils_1.hasBeenUpdatedAfter)(zip, curr_depot_last_updated) &&
-        (0, utils_1.getPreviousResult)(zip, curr_depot_map) === null &&
-        curr_depot_file !== null))
+        // Remove the zips that...
+        // 1. We have a depot file, indicating that we have checked before;
+        // 2. The zip has not been updated after the last updated date; and
+        // 3. The zip is not a template;
+        .filter(zip => !(curr_depot_file !== null &&
+        !(0, utils_1.hasBeenUpdatedAfter)(zip, curr_depot_last_updated) &&
+        (0, utils_1.getPreviousResult)(zip, curr_depot_map) === null))
         // Add the previous result to the zip if the result is before the last updated date
         .map(zip => (0, utils_1.applyPreviousResult)(zip, curr_depot_map, curr_depot_last_updated));
+    core.debug(`Zips: ${JSON.stringify(zips, null, 2)}`);
     const num_of_fetching = zips.filter(zip => !zip.result).length;
     if (num_of_fetching === 0) {
         core.info(`Depot ${target_path} is already up to date`);
