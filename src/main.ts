@@ -389,6 +389,8 @@ export async function run(): Promise<void> {
       applyPreviousResult(zip, curr_depot_map, curr_depot_last_updated)
     )
 
+  core.debug(`Zips: ${JSON.stringify(zips, null, 2)}`)
+
   const num_of_fetching = zips.filter(zip => !zip.result).length
 
   if (num_of_fetching === 0) {
