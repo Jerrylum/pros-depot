@@ -37863,9 +37863,13 @@ async function run() {
         core.info(`Skipping push`);
         return;
     }
-    core.info(`Pushing the file to the target repository ${target_repo_rid.owner}/${target_repo_rid.repo}`);
-    const commit_message = (0, utils_1.getCommitMessage)(curr_depot, new_depot);
+    const generated_message = (0, utils_1.getCommitMessage)(curr_depot, new_depot);
+    const commit_message = core
+        .getInput('commit_message')
+        .replace('%MESSAGE%', generated_message)
+        .trim();
     core.info(`Commit message: ${commit_message}`);
+    core.info(`Pushing the file to the target repository ${target_repo_rid.owner}/${target_repo_rid.repo}`);
     const success = await pushFile(target_repo_rid, target_branch, target_path, new_depot_string, commit_message, curr_depot_file?.sha ?? null);
     if (success) {
         core.info(`Pushed depot file to the target repository`);

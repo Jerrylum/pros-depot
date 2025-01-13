@@ -19,6 +19,13 @@ inputs:
       'Include prereleases in the depot (all, stable-only, prerelease-only)'
     required: false
     default: 'all'
+  commit_message:
+    description:
+      'Commit message for the depot JSON file. If not provided, the action will
+      use the default generated message. If provided, the action will use the
+      provided message. Use %MESSAGE% to insert the generated message.'
+    required: false
+    default: '%MESSAGE%'
   push:
     description:
       'Push the generated depot JSON file to the target branch (optional,

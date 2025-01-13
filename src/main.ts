@@ -426,13 +426,17 @@ export async function run(): Promise<void> {
     return
   }
 
+  const generated_message = getCommitMessage(curr_depot, new_depot)
+  const commit_message = core
+    .getInput('commit_message')
+    .replace('%MESSAGE%', generated_message)
+    .trim()
+
+  core.info(`Commit message: ${commit_message}`)
+
   core.info(
     `Pushing the file to the target repository ${target_repo_rid.owner}/${target_repo_rid.repo}`
   )
-
-  const commit_message = getCommitMessage(curr_depot, new_depot)
-
-  core.info(`Commit message: ${commit_message}`)
 
   const success = await pushFile(
     target_repo_rid,
