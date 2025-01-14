@@ -1,263 +1,203 @@
-# Create a GitHub Action Using TypeScript
+# PROS Depot
 
-[![GitHub Super-Linter](https://github.com/actions/typescript-action/actions/workflows/linter.yml/badge.svg)](https://github.com/super-linter/super-linter)
-![CI](https://github.com/actions/typescript-action/actions/workflows/ci.yml/badge.svg)
-[![Check dist/](https://github.com/actions/typescript-action/actions/workflows/check-dist.yml/badge.svg)](https://github.com/actions/typescript-action/actions/workflows/check-dist.yml)
-[![CodeQL](https://github.com/actions/typescript-action/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/actions/typescript-action/actions/workflows/codeql-analysis.yml)
-[![Coverage](./badges/coverage.svg)](./badges/coverage.svg)
+A GitHub Action that generates a PROS depot JSON file from GitHub releases for
+PROS template distribution. This action helps maintain a catalog of PROS
+templates by scanning releases and creating a structured JSON file that can be
+used by PROS-CLI.
 
-Use this template to bootstrap the creation of a TypeScript action. :rocket:
+## Features
 
-This template includes compilation support, tests, a validation workflow,
-publishing, and versioning guidance.
-
-If you are new, there's also a simpler introduction in the
-[Hello world JavaScript action repository](https://github.com/actions/hello-world-javascript-action).
-
-## Create Your Own Action
-
-To create your own action, you can use this repository as a template! Just
-follow the below instructions:
-
-1. Click the **Use this template** button at the top of the repository
-1. Select **Create a new repository**
-1. Select an owner and name for your new repository
-1. Click **Create repository**
-1. Clone your new repository
-
-> [!IMPORTANT]
->
-> Make sure to remove or update the [`CODEOWNERS`](./CODEOWNERS) file! For
-> details on how to use this file, see
-> [About code owners](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners).
-
-## Initial Setup
-
-After you've cloned the repository to your local machine or codespace, you'll
-need to perform some initial setup steps before you can develop your action.
-
-> [!NOTE]
->
-> You'll need to have a reasonably modern version of
-> [Node.js](https://nodejs.org) handy (20.x or later should work!). If you are
-> using a version manager like [`nodenv`](https://github.com/nodenv/nodenv) or
-> [`fnm`](https://github.com/Schniz/fnm), this template has a `.node-version`
-> file at the root of the repository that can be used to automatically switch to
-> the correct version when you `cd` into the repository. Additionally, this
-> `.node-version` file is used by GitHub Actions in any `actions/setup-node`
-> actions.
-
-1. :hammer_and_wrench: Install the dependencies
-
-   ```bash
-   npm install
-   ```
-
-1. :building_construction: Package the TypeScript for distribution
-
-   ```bash
-   npm run bundle
-   ```
-
-1. :white_check_mark: Run the tests
-
-   ```bash
-   $ npm test
-
-   PASS  ./index.test.js
-     ✓ throws invalid number (3ms)
-     ✓ wait 500 ms (504ms)
-     ✓ test runs (95ms)
-
-   ...
-   ```
-
-## Update the Action Metadata
-
-The [`action.yml`](action.yml) file defines metadata about your action, such as
-input(s) and output(s). For details about this file, see
-[Metadata syntax for GitHub Actions](https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions).
-
-When you copy this repository, update `action.yml` with the name, description,
-inputs, and outputs for your action.
-
-## Update the Action Code
-
-The [`src/`](./src/) directory is the heart of your action! This contains the
-source code that will be run when your action is invoked. You can replace the
-contents of this directory with your own code.
-
-There are a few things to keep in mind when writing your action code:
-
-- Most GitHub Actions toolkit and CI/CD operations are processed asynchronously.
-  In `main.ts`, you will see that the action is run in an `async` function.
-
-  ```javascript
-  import * as core from '@actions/core'
-  //...
-
-  async function run() {
-    try {
-      //...
-    } catch (error) {
-      core.setFailed(error.message)
-    }
-  }
-  ```
-
-  For more information about the GitHub Actions toolkit, see the
-  [documentation](https://github.com/actions/toolkit/blob/master/README.md).
-
-So, what are you waiting for? Go ahead and start customizing your action!
-
-1. Create a new branch
-
-   ```bash
-   git checkout -b releases/v1
-   ```
-
-1. Replace the contents of `src/` with your action code
-1. Add tests to `__tests__/` for your source code
-1. Format, test, and build the action
-
-   ```bash
-   npm run all
-   ```
-
-   > This step is important! It will run [`ncc`](https://github.com/vercel/ncc)
-   > to build the final JavaScript action code with all dependencies included.
-   > If you do not run this step, your action will not work correctly when it is
-   > used in a workflow. This step also includes the `--license` option for
-   > `ncc`, which will create a license file for all of the production node
-   > modules used in your project.
-
-1. (Optional) Test your action locally
-
-   The [`@github/local-action`](https://github.com/github/local-action) utility
-   can be used to test your action locally. It is a simple command-line tool
-   that "stubs" (or simulates) the GitHub Actions Toolkit. This way, you can run
-   your TypeScript action locally without having to commit and push your changes
-   to a repository.
-
-   The `local-action` utility can be run in the following ways:
-
-   - Visual Studio Code Debugger
-
-     Make sure to review and, if needed, update
-     [`.vscode/launch.json`](./.vscode/launch.json)
-
-   - Terminal/Command Prompt
-
-     ```bash
-     # npx local action <action-yaml-path> <entrypoint> <dotenv-file>
-     npx local-action . src/main.ts .env
-     ```
-
-   You can provide a `.env` file to the `local-action` CLI to set environment
-   variables used by the GitHub Actions Toolkit. For example, setting inputs and
-   event payload data used by your action. For more information, see the example
-   file, [`.env.example`](./.env.example), and the
-   [GitHub Actions Documentation](https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables).
-
-1. Commit your changes
-
-   ```bash
-   git add .
-   git commit -m "My first action is ready!"
-   ```
-
-1. Push them to your repository
-
-   ```bash
-   git push -u origin releases/v1
-   ```
-
-1. Create a pull request and get feedback on your action
-1. Merge the pull request into the `main` branch
-
-Your action is now published! :rocket:
-
-For information about versioning your action, see
-[Versioning](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md)
-in the GitHub Actions toolkit.
-
-## Validate the Action
-
-You can now validate the action by referencing it in a workflow file. For
-example, [`ci.yml`](./.github/workflows/ci.yml) demonstrates how to reference an
-action in the same repository.
-
-```yaml
-steps:
-  - name: Checkout
-    id: checkout
-    uses: actions/checkout@v4
-
-  - name: Test Local Action
-    id: test-action
-    uses: ./
-    with:
-      milliseconds: 1000
-
-  - name: Print Output
-    id: output
-    run: echo "${{ steps.test-action.outputs.time }}"
-```
-
-For example workflow runs, check out the
-[Actions tab](https://github.com/actions/typescript-action/actions)! :rocket:
+- Scans GitHub releases for PROS template zip files
+- Generates a structured depot JSON file compatible with PROS-CLI
+- Supports filtering releases (all/stable-only/prerelease-only)
+- Caches previously processed templates for efficiency
+- Automatically commits and pushes updates to a target branch
 
 ## Usage
 
-After testing, you can create version tag(s) that developers can use to
-reference different stable versions of your action. For more information, see
-[Versioning](https://github.com/actions/toolkit/blob/master/docs/action-versioning.md)
-in the GitHub Actions toolkit.
+Add the following step to your GitHub Actions workflow:
 
-To include the action in a workflow in another repository, you can use the
-`uses` syntax with the `@` symbol to reference a specific branch, tag, or commit
-hash.
-
-```yaml
-steps:
-  - name: Checkout
-    id: checkout
-    uses: actions/checkout@v4
-
-  - name: Test Local Action
-    id: test-action
-    uses: actions/typescript-action@v1 # Commit with the `v1` tag
-    with:
-      milliseconds: 1000
-
-  - name: Print Output
-    id: output
-    run: echo "${{ steps.test-action.outputs.time }}"
+```yml
+- name: Generate PROS depot
+  uses: jerrylum/pros-depot@v1.0.0
+  with:
+    token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-## Publishing a New Release
+For a complete workflow that updates the depot whenever a new release is
+published:
 
-This project includes a helper script, [`script/release`](./script/release)
-designed to streamline the process of tagging and pushing new releases for
-GitHub Actions.
+```yml
+name: Populate Depot JSON
 
-GitHub Actions allows users to select a specific version of the action to use,
-based on release tags. This script simplifies this process by performing the
-following steps:
+on:
+  # runs when this repository's releases are modified
+  release:
+  # allows for manual dispatching of the workflow
+  workflow_dispatch:
 
-1. **Retrieving the latest release tag:** The script starts by fetching the most
-   recent SemVer release tag of the current branch, by looking at the local data
-   available in your repository.
-1. **Prompting for a new release tag:** The user is then prompted to enter a new
-   release tag. To assist with this, the script displays the tag retrieved in
-   the previous step, and validates the format of the inputted tag (vX.X.X). The
-   user is also reminded to update the version field in package.json.
-1. **Tagging the new release:** The script then tags a new release and syncs the
-   separate major tag (e.g. v1, v2) with the new release tag (e.g. v1.0.0,
-   v2.1.2). When the user is creating a new major release, the script
-   auto-detects this and creates a `releases/v#` branch for the previous major
-   version.
-1. **Pushing changes to remote:** Finally, the script pushes the necessary
-   commits, tags and branches to the remote repository. From here, you will need
-   to create a new release in GitHub so users can easily reference the new tags
-   in their workflows.
+jobs:
+  populate:
+    runs-on: ubuntu-latest
+    permissions:
+      # permits reading of releases and writing to the depot branch
+      contents: write
+    steps:
+      - uses: jerrylum/pros-depot@v1.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+When the action is run, it will generate a depot JSON file named `depot.json`
+in branch `depot`. If the branch does not exist, it will be created with just
+the depot JSON file.
+
+## Inputs
+
+| Input                 | Description                                                                       | Required | Default               |
+| --------------------- | --------------------------------------------------------------------------------- | -------- | --------------------- |
+| `token`               | GitHub token for accessing repository releases                                    | No       | `${{ github.token }}` |
+| `include_prereleases` | Include prereleases in the depot (all/stable-only/prerelease-only)                | No       | `all`                 |
+| `commit_message`      | Commit message for the depot JSON file. Use %MESSAGE% to insert generated message | No       | `%MESSAGE%`           |
+| `push`                | Push the generated depot JSON file to the target branch                           | No       | `true`                |
+| `target_repo`         | Target repository to push the depot JSON file to                                  | No       | Current repository    |
+| `target_branch`       | Branch to store the generated depot JSON file                                     | No       | `depot`               |
+| `target_path`         | Path where the JSON file will be stored in the target branch                      | No       | `depot.json`          |
+
+### `include_prereleases`
+
+- `all` - Include all releases
+- `stable-only` - Include only stable releases
+- `prerelease-only` - Include only prereleases
+
+### `commit_message`
+
+Use `%MESSAGE%` to insert the generated message. For example, if you want to
+include gitmoji in the commit message, you can use `:tada: %MESSAGE%`.
+
+## `push`
+
+If `push` is set to `false`, the action will not push the generated depot JSON
+file to the target branch. This is useful if you want to manually push the file
+to the target branch later, or if you want to customize the commit message.
+
+## Outputs
+
+| Output | Description                                  |
+| ------ | -------------------------------------------- |
+| depot  | The content of the generated depot JSON file |
+
+## Example Depot JSON
+
+```json
+[
+  {
+    "metadata": {
+      "location": "https://github.com/user/repo/releases/download/v1.0.0/template.zip"
+    },
+    "name": "Example Template",
+    "py/object": "pros.conductor.templates.base_template.BaseTemplate",
+    "supported_kernels": "^3.8.0",
+    "target": "v5",
+    "version": "1.0.0"
+  }
+]
+```
+
+## Permissions
+
+The action requires the following permissions:
+
+- contents: write - To push the generated depot file to the target branch
+
+Add these permissions to your workflow:
+
+```yml
+permissions:
+  contents: write
+```
+
+## How It Works
+
+The PROS Depot action processes GitHub releases and generates a depot file
+through the following steps:
+
+1. **Fetch Current Depot**
+
+   - Attempts to fetch the existing depot file from the target branch
+   - If found, parses the depot file
+
+2. **Fetch Releases**
+
+   - Fetches all releases from the source repository
+   - Filters releases based on the `include_prereleases` setting:
+     - `all`: Includes both stable and pre-releases
+     - `stable-only`: Only includes stable releases
+     - `prerelease-only`: Only includes pre-releases
+
+3. **Fetch Templates**
+
+   - For each release, scans through assets to find ZIP files
+   - Checks if each ZIP has been updated since the last depot update
+   - If a ZIP hasn't changed and was previously processed:
+     - Reuses the existing template information from the current depot
+     - Skips downloading and processing that ZIP
+   - If a ZIP is new or has been updated:
+     - Marks it for processing
+   - Otherwise, skips the ZIP
+
+4. **Process Templates**
+
+   - For each new or updated ZIP file:
+     - Downloads the ZIP content
+     - Extracts and reads the `template.pros` file
+     - Validates the template structure
+     - Converts the external template format to the base template format
+     - Adds the template to the new depot list
+
+5. **Generate Depot**
+
+   - Combines all processed templates into a JSON array
+   - Formats the JSON with proper indentation
+
+6. **File Update**
+
+   - Generates a commit message based on changes:
+     - For single new template: "Release version X.Y.Z"
+     - For multiple changes: "Update one or more version(s)"
+   - If pushing is enabled (`push: true`):
+     - Checks if the target branch exists
+     - If branch doesn't exist, creates a new orphan branch
+     - Commits and pushes the updated depot file
+
+## Advanced Usage
+
+### Custom Target Repository
+
+To push the depot file to a different repository:
+
+```yml
+- name: Generate PROS depot
+  uses: jerrylum/pros-depot@v1.0.0
+  with:
+    token: ${{ secrets.PAT_TOKEN }} # Need a PAT with repo access
+    target_repo: organization/my-library-website
+    target_branch: main
+    target_path: depot.json
+```
+
+This is useful if you want to push the depot file to a different repository, for
+example, a separated repository for your PROS library website. If you also set
+up GitHub Pages for your library website, your users can then download the depot
+file via links like `https://my-library-website.com/depot.json`.
+
+### Custom Commit Messages
+
+To customize the commit message:
+
+```yml
+- name: Generate PROS depot
+  uses: jerrylum/pros-depot@v1.0.0
+  with:
+    commit_message: 'chore: %MESSAGE%' # Will insert the generated message
+```
