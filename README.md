@@ -43,7 +43,7 @@ jobs:
       # permits reading of releases and writing to the depot branch
       contents: write
     steps:
-      - uses: jerrylum/pros-depot@v1.0.0
+ - uses: jerrylum/pros-depot@v1.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -137,14 +137,14 @@ through the following steps:
 
 3. **Fetch Templates**
 
-   - For each release, scans through assets to find ZIP files
+   - For each release, scan through assets to find ZIP files
    - Checks if each ZIP has been updated since the last depot update
    - If a ZIP hasn't changed and was previously processed:
      - Reuses the existing template information from the current depot
      - Skips downloading and processing that ZIP
    - If a ZIP is new or has been updated:
      - Marks it for processing
-   - Otherwise, skips the ZIP
+   - Otherwise, skip the ZIP
 
 4. **Process Templates**
 
@@ -167,7 +167,7 @@ through the following steps:
      - For multiple changes: "Update one or more version(s)"
    - If pushing is enabled (`push: true`):
      - Checks if the target branch exists
-     - If branch doesn't exist, creates a new orphan branch
+     - If the branch doesn't exist, create a new orphan branch
      - Commits and pushes the updated depot file
 
 ## Advanced Usage
@@ -187,8 +187,8 @@ To push the depot file to a different repository:
 ```
 
 This is useful if you want to push the depot file to a different repository, for
-example, a separated repository for your PROS library website. If you also set
-up GitHub Pages for your library website, your users can then download the depot
+example, a separate repository for your PROS library website. If you also set up
+GitHub Pages for your library website, your users can then download the depot
 file via links like `https://my-library-website.com/depot.json`.
 
 ### Custom Commit Messages
