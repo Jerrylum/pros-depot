@@ -43,7 +43,8 @@ jobs:
       # permits reading of releases and writing to the depot branch
       contents: write
     steps:
-      - uses: jerrylum/pros-depot@v1.0.0
+      - name: Generate PROS depot
+        uses: jerrylum/pros-depot@v1.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 ```
