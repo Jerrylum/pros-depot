@@ -1,3 +1,4 @@
+import fs from 'fs'
 import * as core from '@actions/core'
 import { Octokit } from '@octokit/rest'
 import {
@@ -22,7 +23,6 @@ import {
   shouldIncludeZip,
   toRepositoryIdentifier
 } from './utils'
-
 export function getOctokit(): Octokit {
   const GITHUB_TOKEN = core.getInput('token') || process.env.GITHUB_TOKEN || ''
   return new Octokit({ auth: GITHUB_TOKEN })
@@ -419,7 +419,8 @@ export async function run(): Promise<void> {
   const new_depot_string = JSON.stringify(new_depot, null, 2)
 
   core.debug(`Depot: ${new_depot_string}`)
-  core.setOutput('depot', new_depot_string)
+  fs.writeFileSync('depot.json', new_depot_string)
+  core.setOutput('depot', 'depot.json')
 
   if (!is_push) {
     core.info(`Skipping push`)

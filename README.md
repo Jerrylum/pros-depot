@@ -43,7 +43,7 @@ jobs:
       # permits reading of releases and writing to the depot branch
       contents: write
     steps:
- - uses: jerrylum/pros-depot@v1.0.0
+      - uses: jerrylum/pros-depot@v1.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -83,9 +83,9 @@ to the target branch later, or if you want to customize the commit message.
 
 ## Outputs
 
-| Output | Description                                  |
-| ------ | -------------------------------------------- |
-| depot  | The content of the generated depot JSON file |
+| Output | Description                               |
+| ------ | ----------------------------------------- |
+| depot  | The path to the generated depot JSON file |
 
 ## Example Depot JSON
 
@@ -151,6 +151,7 @@ through the following steps:
    - For each new or updated ZIP file:
      - Downloads the ZIP content
      - Extracts and reads the `template.pros` file
+     - If the `template.pros` file is not found, skip the ZIP
      - Validates the template structure
      - Converts the external template format to the base template format
      - Adds the template to the new depot list

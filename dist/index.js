@@ -37569,6 +37569,7 @@ exports.createBaseTemplate = createBaseTemplate;
 exports.pushFile = pushFile;
 exports.getReleaseSummary = getReleaseSummary;
 exports.run = run;
+const fs_1 = __importDefault(__nccwpck_require__(9896));
 const core = __importStar(__nccwpck_require__(7484));
 const rest_1 = __nccwpck_require__(5772);
 const schema_1 = __nccwpck_require__(5060);
@@ -37858,7 +37859,8 @@ async function run() {
     const new_depot = fetched_templates.filter(template => template !== null);
     const new_depot_string = JSON.stringify(new_depot, null, 2);
     core.debug(`Depot: ${new_depot_string}`);
-    core.setOutput('depot', new_depot_string);
+    fs_1.default.writeFileSync('depot.json', new_depot_string);
+    core.setOutput('depot', 'depot.json');
     if (!is_push) {
         core.info(`Skipping push`);
         return;
