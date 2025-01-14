@@ -47,7 +47,7 @@ inputs:
   target_path:
     description: 'Path where the JSON file will be stored in the target branch'
     required: false
-    default: 'stable.json'
+    default: 'depot.json'
 
 outputs:
   depot:
