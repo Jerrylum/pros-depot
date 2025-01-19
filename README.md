@@ -49,9 +49,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-When the action is run, it will generate a depot JSON file named `depot.json` in
-branch `depot`. If the branch does not exist, it will be created with just the
-depot JSON file.
+It will generate a depot JSON file named `depot.json` in
+branch `depot`. If the branch does not exist, the branch will be created with
+just the depot JSON file.
 
 ## Inputs
 
